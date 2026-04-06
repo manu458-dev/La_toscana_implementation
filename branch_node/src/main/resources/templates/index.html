@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <th:block th:replace="~{layout :: head('Inicio - La Toscana')}"></th:block>
+</head>
+
+<body class="bg-light">
+
+    <th:block th:replace="~{layout :: navbar}"></th:block>
+
+    <div class="container mt-4">
+        <h2>Bienvenido a La Toscana, Sucursal Local (en desarrollo)</h2>
+        <p class="text-muted">El sistema se ha inicializado correctamente. Interfaz base para el MVP.</p>
+        <div class="row mt-4">
+            <div class="col-md-4 mb-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="bi bi-receipt"></i> Ventas POS</h5>
+                        <p class="card-text">Interfaces de operación</p>
+                        <a href="/waiter" class="btn btn-sm btn-primary mt-2">App Mesero</a>
+                        <a href="/cashier" class="btn btn-sm btn-secondary mt-2">App Cajero</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="bi bi-gear"></i> Módulo Gerencia</h5>
+                        <p class="card-text">Control de inventarios y validación de cortes de caja de todos los turnos.
+                        </p>
+                        <div th:if="${role == 'MANAGER'}">
+                            <a href="/manager/inventory" class="btn btn-sm btn-outline-warning mt-2 w-100 text-dark"><i
+                                    class="bi bi-box-seam"></i> Administrar Inventario</a>
+                            <a href="/manager/audit" class="btn btn-sm btn-outline-success mt-2 w-100"><i
+                                    class="bi bi-cash-coin"></i> Arqueo de Caja</a>
+                        </div>
+                        <div th:unless="${role == 'MANAGER'}">
+                            <p class="text-danger small mt-2"><i class="bi bi-lock-fill"></i> Nivel de acceso
+                                insuficiente.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="bi bi-cloud-sync"></i> Sincronización</h5>
+                        <p class="card-text" id="sync-stats">Pendientes: 0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <th:block th:replace="~{layout :: scripts}"></th:block>
+</body>
+
+</html>

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Manager - Inventario</title>
+    <!-- Use layout head fragment -->
+    <th:block th:replace="~{layout :: head('Manager - Inventario')}"></th:block>
+</head>
+<body class="bg-light">
+
+<div th:replace="~{layout :: navbar}"></div>
+
+<div class="container mt-4">
+    <div class="row mb-3">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <h3><i class="bi bi-box-seam text-warning"></i> Control de Inventario</h3>
+            <button class="btn btn-outline-secondary" onclick="loadIngredients()"><i class="bi bi-arrow-clockwise"></i> Recargar</button>
+        </div>
+    </div>
+    
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h5 class="card-title text-muted mb-3">Ingredientes y Stock Actual</h5>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID</th>
+                            <th>Ingrediente</th>
+                            <th>Stock Actual</th>
+                            <th>Ajuste de Stock</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ingredients-tbody">
+                        <tr><td colspan="4" class="text-center">Cargando ingredientes...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{layout :: scripts}"></div>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        loadIngredients();
+    });
+
+    async function loadIngredients() {
+        try {
+            const resp = await fetch('/api/inventory/ingredients');
+            if(resp.status === 403) {
+                Toastify({ text: "Acceso denegado. No eres manager.", backgroundColor: "#dc3545" }).showToast();
+                return;
+            }
+            if(!resp.ok) throw new Error("Error en la petición: " + resp.status);
+            const ingredients = await resp.json();
+            
+            const tbody = document.getElementById('ingredients-tbody');
+            tbody.innerHTML = '';
+            
+            ingredients.forEach(i => {
+                // If stock is below 10, mark red visually
+                let isLow = parseFloat(i.currentStock) < 10.0;
+                let textClass = isLow || parseFloat(i.currentStock) < 0 ? 'text-danger fw-bold' : 'text-success fw-bold';
+                
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${i.id}</td>
+                    <td>${i.name}</td>
+                    <td class="${textClass}">${i.currentStock} ${i.unitOfMeasure}</td>
+                    <td>
+                        <div class="input-group input-group-sm w-75">
+                            <input type="number" step="0.01" class="form-control" id="adj-inc-${i.id}" placeholder="Nuevo stock" value="${parseFloat(i.currentStock).toFixed(2)}" />
+                            <button class="btn btn-warning" onclick="adjustStock(${i.id})"><i class="bi bi-pencil"></i> Aplicar</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            let negatives = ingredients.filter(i => parseFloat(i.currentStock) < 0);
+            if(negatives.length > 0) {
+                Toastify({
+                    text: `¡Alerta! Tienes ${negatives.length} ingredientes en negativo por desface de recetas.`,
+                    backgroundColor: "#dc3545",
+                    duration: 5000
+                }).showToast();
+            }
+
+        } catch(e) {
+            console.error(e);
+            Toastify({ text: "Imposible cargar inventario. Avisa a soporte offline.", backgroundColor: "#dc3545" }).showToast();
+        }
+    }
+
+    async function adjustStock(id) {
+        let inputVal = document.getElementById('adj-inc-' + id).value;
+        if(!inputVal || isNaN(inputVal)) return;
+
+        let reason = prompt("Describe el motivo del ajuste (ej. Merma, Error, Insumo Nuevo):", "Ajuste manual");
+        if(!reason) return; // User cancelled
+
+        let payload = {
+            ingredientId: id,
+            newStock: parseFloat(inputVal),
+            reason: reason
+        };
+
+        try {
+            const resp = await fetch('/api/inventory/adjust', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if(resp.ok) {
+                Toastify({ text: "Inventario actualizado", backgroundColor: "#28a745" }).showToast();
+                loadIngredients();
+            } else {
+                Toastify({ text: "Error al actualizar", backgroundColor: "#dc3545" }).showToast();
+            }
+        } catch(e) {
+             Toastify({ text: "Error de red al actualizar", backgroundColor: "#dc3545" }).showToast();
+        }
+    }
+</script>
+</body>
+</html>

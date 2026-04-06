@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso Denegado - La Toscana</title>
+    <!-- Bootstrap 5 CSS -->
+    <link th:href="@{/css/bootstrap.min.css}" rel="stylesheet">
+    <link th:href="@{/css/bootstrap-icons.min.css}" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .error-card {
+            max-width: 500px;
+            text-align: center;
+            padding: 3rem;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border-top: 5px solid #dc3545;
+        }
+        .error-icon {
+            font-size: 5rem;
+            color: #dc3545;
+            margin-bottom: 1rem;
+        }
+        .error-code {
+            font-size: 3rem;
+            font-weight: 800;
+            color: #343a40;
+            line-height: 1;
+        }
+        .error-message {
+            color: #6c757d;
+            font-size: 1.1rem;
+            margin: 1.5rem 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="error-card">
+        <i class="bi bi-shield-lock-fill error-icon"></i>
+        <div class="error-code">403</div>
+        <h2 class="mt-2 text-dark">Acceso Restringido</h2>
+        <p class="error-message">
+            Tu Rol actual no tiene los privilegios necesarios para ingresar a esta sección. Cada área técnica de <b>La Toscana</b> está reservada solo para personal autorizado.
+        </p>
+        <div class="d-grid gap-2 mt-4">
+            <a href="/" class="btn btn-primary btn-lg"><i class="bi bi-house-door-fill me-2"></i>Volver al Inicio</a>
+            <form th:action="@{/logout}" method="post" class="mt-2">
+                <button type="submit" class="btn btn-outline-danger w-100"><i class="bi bi-box-arrow-right me-2"></i>Cambiar de Usuario</button>
+            </form>
+        </div>
+    </div>
+
+</body>
+</html>

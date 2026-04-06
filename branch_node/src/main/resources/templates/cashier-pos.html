@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Toscana - Caja POS</title>
+    <!-- Bootstrap 5 CDN -->
+    <link th:href="@{/css/bootstrap.min.css}" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .order-card { cursor: pointer; transition: background-color 0.2s; }
+        .order-card:hover { background-color: #e9ecef; }
+        .selected-order { border: 2px solid #0d6efd; background-color: #e9ecef; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                La Toscana - Caja
+                <span th:if="${username}" class="ms-2 fs-6 fw-light text-warning" th:text="'| Bienvenido ' + ${username}"></span>
+            </a>
+            <div class="d-flex align-items-center">
+                <span id="connectivity-badge" class="badge bg-success me-3">Online</span>
+                <form th:action="@{/logout}" method="post" class="m-0">
+                    <button type="submit" class="btn btn-sm btn-outline-light" title="Cerrar Sesión">Salir</button>
+                </form>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <!-- Open Orders Panel -->
+            <div class="col-md-6">
+                <h4>Órdenes Abiertas (Pendientes de Cobro)</h4>
+                <button class="btn btn-sm btn-outline-secondary mb-3" onclick="loadOpenOrders()">Actualizar Lista</button>
+                <div class="list-group" id="open-orders-list">
+                    <!-- Orders injected here -->
+                </div>
+            </div>
+
+            <!-- Payment Panel -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-dark text-white">
+                        <h5 class="mb-0">Detalle de Cobro</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="payment-details" style="display: none;">
+                            <h4 class="card-title text-center mb-4">Orden #<span id="display-order-id"></span></h4>
+                            <div class="alert alert-info text-center">
+                                <h1 class="display-4 fw-bold">Total a Cobrar: $<span id="display-total">0.00</span></h1>
+                            </div>
+                            
+                            <hr>
+                            
+                            <h5>Método de Pago:</h5>
+                            <div class="d-flex gap-2 mb-4">
+                                <button class="btn btn-outline-success flex-fill p-3 fw-bold" onclick="selectPayment('EFECTIVO')" id="btn-EFECTIVO">EFECTIVO</button>
+                                <button class="btn btn-outline-primary flex-fill p-3 fw-bold" onclick="selectPayment('TARJETA')" id="btn-TARJETA">TARJETA</button>
+                            </div>
+                            
+                            <button class="btn btn-primary btn-lg w-100" id="btn-pay" onclick="processPayment()" disabled>Cobrar e Imprimir Ticket (PDF)</button>
+                        </div>
+                        <div id="no-selection-msg" class="text-center text-muted p-5">
+                            Selecciona una orden de la lista para proceder con el cobro.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script th:src="@{/js/bootstrap.bundle.min.js}"></script>
+    <script th:src="@{/js/connectivity.js}"></script>
+    <script>
+        let selectedOrderId = null;
+        let selectedTotal = 0.0;
+        let currentPaymentMethod = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadOpenOrders();
+            setInterval(loadOpenOrders, 10000); // refresh every 10s
+        });
+
+        async function loadOpenOrders() {
+            try {
+                const response = await fetch('/api/orders/open');
+                const orders = await response.json();
+                const list = document.getElementById('open-orders-list');
+                list.innerHTML = '';
+                
+                if (orders.length === 0) {
+                    list.innerHTML = '<div class="alert alert-secondary text-center">No hay órdenes pendientes.</div>';
+                    return;
+                }
+
+                orders.forEach(order => {
+                    const isActive = order.id === selectedOrderId;
+                    list.innerHTML += `
+                        <a href="#" class="list-group-item list-group-item-action flex-column align-items-start order-card ${isActive ? 'selected-order' : ''}" 
+                           onclick="selectOrder(${order.id}, ${order.total})">
+                            <div class="d-flex w-100 justify-content-between align-items-center">
+                                <h5 class="mb-1">Orden #${order.id}</h5>
+                                <span class="badge bg-primary rounded-pill fs-6">$${order.total.toFixed(2)}</span>
+                            </div>
+                            <small class="text-muted">Líneas: ${order.lines.length} | Creada: ${new Date(order.createdAt).toLocaleTimeString()}</small>
+                        </a>
+                    `;
+                });
+            } catch (error) {
+                console.error('Error fetching open orders', error);
+            }
+        }
+
+        function selectOrder(id, total) {
+            selectedOrderId = id;
+            selectedTotal = total;
+            document.getElementById('no-selection-msg').style.display = 'none';
+            document.getElementById('payment-details').style.display = 'block';
+            document.getElementById('display-order-id').textContent = id;
+            document.getElementById('display-total').textContent = total.toFixed(2);
+            loadOpenOrders(); // to update selection visually
+            
+            // reset payment
+            currentPaymentMethod = null;
+            document.getElementById('btn-EFECTIVO').classList.remove('active');
+            document.getElementById('btn-TARJETA').classList.remove('active');
+            
+            const btnPay = document.getElementById('btn-pay');
+            btnPay.disabled = true;
+            btnPay.textContent = 'Cobrar e Imprimir Ticket (PDF)';
+        }
+
+        function selectPayment(method) {
+            currentPaymentMethod = method;
+            document.getElementById('btn-EFECTIVO').classList.remove('active');
+            document.getElementById('btn-TARJETA').classList.remove('active');
+            document.getElementById(`btn-${method}`).classList.add('active');
+            document.getElementById('btn-pay').disabled = false;
+        }
+
+        async function processPayment() {
+            if (!selectedOrderId || !currentPaymentMethod) return;
+
+            document.getElementById('btn-pay').disabled = true;
+            document.getElementById('btn-pay').textContent = 'Procesando...';
+
+            try {
+                const response = await fetch(`/api/cashier/close-sale?orderId=${selectedOrderId}&paymentMethod=${currentPaymentMethod}`, {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    // Download PDF byte stream
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `receipt_orden_${selectedOrderId}.pdf`;
+                    document.body.appendChild(a);
+                    a.target = '_blank'; // Forzar que no mate la sesión actual
+                    a.click();
+                    
+                    // Reset UI synchronously BEFORE alert blocks thread
+                    document.getElementById('btn-pay').textContent = 'Cobrar e Imprimir Ticket (PDF)';
+                    document.getElementById('btn-pay').disabled = false;
+                    selectedOrderId = null;
+                    document.getElementById('payment-details').style.display = 'none';
+                    document.getElementById('no-selection-msg').style.display = 'block';
+                    
+                    setTimeout(() => {
+                        window.URL.revokeObjectURL(url);
+                        alert('Cobro exitoso. Ticket procesado.');
+                        loadOpenOrders();
+                    }, 500);
+
+                } else {
+                    const text = await response.text();
+                    alert("Error en el cobro: " + text);
+                }
+            } catch (error) {
+                console.error("Payment error", error);
+                alert("Error de conexión al procesar el cobro.");
+            } finally {
+                document.getElementById('btn-pay').textContent = 'Cobrar e Imprimir Ticket (PDF)';
+                document.getElementById('btn-pay').disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

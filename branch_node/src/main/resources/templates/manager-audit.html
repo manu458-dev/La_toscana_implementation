@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Manager - Arqueo de Caja</title>
+    <th:block th:replace="~{layout :: head('Manager - Arqueo')}"></th:block>
+</head>
+<body class="bg-light">
+
+<div th:replace="~{layout :: navbar}"></div>
+
+<div class="container mt-4">
+    <div class="row align-items-center mb-4">
+        <div class="col-md-5">
+            <h3><i class="bi bi-wallet2 text-success"></i> Arqueo de Caja</h4>
+            <p class="text-muted mb-0">Valide la suma de dinero por turnos operativos</p>
+        </div>
+        <div class="col-md-7">
+            <div class="input-group">
+                <span class="input-group-text">Inicio</span>
+                <input type="datetime-local" class="form-control" id="start-date">
+                <span class="input-group-text">Fin</span>
+                <input type="datetime-local" class="form-control" id="end-date">
+                <button class="btn btn-primary" onclick="loadAudit()"><i class="bi bi-search"></i> Calcular</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row" id="audit-results" style="display: none;">
+        <div class="col-md-4 mb-3">
+            <div class="card border-0 shadow-sm bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Venta Total del Corte</h5>
+                    <h2 class="fw-bold" id="res-total">$0.00</h2>
+                    <p class="mb-0">Tickets Generados: <span id="res-tickets-count">0</span></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title text-muted">Desglose por Tipos de Pago</h5>
+                    <ul class="list-group list-group-flush" id="res-payment-methods">
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div th:replace="~{layout :: scripts}"></div>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Set default dates: Start today at 00:00, End today 23:59
+        let now = new Date();
+        let startIso = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0).toISOString().slice(0, 16);
+        let endIso = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59).toISOString().slice(0, 16);
+        
+        document.getElementById('start-date').value = startIso;
+        document.getElementById('end-date').value = endIso;
+    });
+
+    async function loadAudit() {
+        let sd = document.getElementById('start-date').value;
+        let ed = document.getElementById('end-date').value;
+        if(!sd || !ed) {
+             Toastify({ text: "Selecciona fechas válidas", backgroundColor: "#ffc107" }).showToast();
+             return;
+        }
+
+        // Must append :00Z or similar if sending to backend parsing ISO DATE_TIME
+        let sdate = new Date(sd).toISOString();
+        let edate = new Date(ed).toISOString();
+
+        try {
+            const resp = await fetch(`/api/audit/report?start=${encodeURIComponent(sdate)}&end=${encodeURIComponent(edate)}`);
+            if(resp.status === 403) {
+                Toastify({ text: "Acceso denegado", backgroundColor: "#dc3545" }).showToast();
+                return;
+            }
+            if(!resp.ok) throw new Error("API Exception");
+            
+            const data = await resp.json();
+            
+            document.getElementById('audit-results').style.display = 'flex';
+            
+            document.getElementById('res-total').innerText = '$' + parseFloat(data.totalSum).toFixed(2);
+            document.getElementById('res-tickets-count').innerText = data.totalTickets;
+            
+            let ul = document.getElementById('res-payment-methods');
+            ul.innerHTML = '';
+            
+            for(const [method, amount] of Object.entries(data.byPaymentMethod)) {
+                let li = document.createElement('li');
+                li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                let iconClass = method === 'EFECTIVO' ? 'bi-cash-coin' : 'bi-credit-card';
+                li.innerHTML = `<span><i class="bi ${iconClass} me-2 text-primary"></i>${method}</span> <span class="fw-bold">$${parseFloat(amount).toFixed(2)}</span>`;
+                ul.appendChild(li);
+            }
+            
+            if(Object.keys(data.byPaymentMethod).length === 0) {
+                 ul.innerHTML = '<li class="list-group-item text-muted">No hubo ventas en este periodo.</li>';
+            }
+
+            Toastify({ text: "Arqueo calculado correctamente", backgroundColor: "#28a745" }).showToast();
+        } catch(e) {
+            console.error(e);
+            Toastify({ text: "Error procesando el arqueo", backgroundColor: "#dc3545" }).showToast();
+        }
+    }
+</script>
+</body>
+</html>

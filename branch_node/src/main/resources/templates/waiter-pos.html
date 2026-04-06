@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Toscana - Mesero POS</title>
+    <!-- Bootstrap 5 CDN -->
+    <link th:href="@{/css/bootstrap.min.css}" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .product-card {
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .product-card:hover {
+            transform: scale(1.02);
+        }
+
+        .order-panel {
+            height: calc(100vh - 56px);
+            overflow-y: auto;
+            background-color: white;
+            border-left: 1px solid #dee2e6;
+        }
+
+        .catalog-panel {
+            height: calc(100vh - 56px);
+            overflow-y: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                La Toscana - Mesero
+                <span th:if="${username}" class="ms-2 fs-6 fw-light text-warning" th:text="'| Bienvenido ' + ${username}"></span>
+            </a>
+            <div class="d-flex align-items-center">
+                <span id="connectivity-badge" class="badge bg-success me-3">Online</span>
+                <form th:action="@{/logout}" method="post" class="m-0">
+                    <button type="submit" class="btn btn-sm btn-outline-light" title="Cerrar Sesión">Salir</button>
+                </form>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Catalog Panel -->
+            <div class="col-md-8 col-lg-9 catalog-panel p-4">
+                <h4 class="mb-4">Catálogo de Productos</h4>
+                <div class="mb-3 d-flex gap-2" id="category-filters">
+                    <button class="btn btn-outline-primary active" onclick="loadProducts('')">Todos</button>
+                    <!-- Categories loaded dynamically -->
+                </div>
+                <div class="row g-3" id="products-grid">
+                    <!-- Products loaded dynamically -->
+                </div>
+            </div>
+
+            <!-- Order Panel -->
+            <div class="col-md-4 col-lg-3 order-panel p-3">
+                <h4>Orden Actual</h4>
+                <div class="mb-3">
+                    <span class="text-muted fw-bold" id="order-id-display">Presiona un producto para iniciar</span>
+                </div>
+
+                <ul class="list-group mb-3" id="order-lines">
+                    <!-- Lines injected here -->
+                </ul>
+
+                <div class="d-flex justify-content-between fs-4 fw-bold mb-3">
+                    <span>Total:</span>
+                    <span id="order-total">$0.00</span>
+                </div>
+
+                <button class="btn btn-success w-100 btn-lg mb-2" onclick="submitOrder()">Cliente Listo - Atender Siguiente</button>
+                <button class="btn btn-danger w-100" onclick="discardOrder()">Cancelar / Borrar Orden</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script th:src="@{/js/bootstrap.bundle.min.js}"></script>
+    <script th:src="@{/js/connectivity.js}"></script>
+    <script>
+        let currentOrderId = null;
+        let currentOrderLines = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCategories();
+            loadProducts('');
+            // Ya no creamos la orden automáticamente al cargar para no hacer spam al cajero
+        });
+
+        async function createNewOrder() {
+            try {
+                const response = await fetch('/api/orders', { method: 'POST' });
+                if (response.ok) {
+                    const order = await response.json();
+                    currentOrderId = order.id;
+                    document.getElementById('order-id-display').textContent = 'Orden #' + order.id;
+                    currentOrderLines = [];
+                    renderOrder();
+                    return true;
+                }
+            } catch (error) {
+                console.error('Error creating order', error);
+                alert("No se pudo conectar con el servidor. Estás offline.");
+            }
+            return false;
+        }
+
+        async function loadCategories() {
+            try {
+                const response = await fetch('/api/catalog/categories');
+                const categories = await response.json();
+                const container = document.getElementById('category-filters');
+                categories.forEach(cat => {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn btn-outline-primary';
+                    btn.textContent = cat.name;
+                    btn.onclick = () => loadProducts(cat.name);
+                    container.appendChild(btn);
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        async function loadProducts(category) {
+            try {
+                let url = '/api/catalog/products';
+                if (category) url += '?category=' + encodeURIComponent(category);
+                const response = await fetch(url);
+                const products = await response.json();
+
+                const grid = document.getElementById('products-grid');
+                grid.innerHTML = '';
+                products.forEach(p => {
+                    grid.innerHTML += `
+                        <div class="col-sm-6 col-md-4 col-xl-3">
+                            <div class="card h-100 product-card" onclick="addProductToOrder(${p.id}, '${p.name}', ${p.price})">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">${p.name}</h5>
+                                    <p class="card-text text-success fw-bold">$${p.price.toFixed(2)}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function addProductToOrder(productId, name, price) {
+            if (!currentOrderId) {
+                // Crear orden lazy (bajo demanda) al dar el primer clic
+                const success = await createNewOrder();
+                if (!success) return;
+            }
+            try {
+                const response = await fetch(`/api/orders/${currentOrderId}/lines?productId=${productId}&quantity=1`, {
+                    method: 'POST'
+                });
+                if (response.ok) {
+                    const order = await response.json();
+                    currentOrderLines = order.lines;
+                    renderOrder();
+                }
+            } catch (e) {
+                console.error('Offline order line addition not fully implemented yet in MVP', e);
+            }
+        }
+
+        async function removeLine(lineId) {
+            try {
+                const response = await fetch(`/api/orders/${currentOrderId}/lines/${lineId}`, {
+                    method: 'DELETE'
+                });
+                if (response.ok) {
+                    const order = await response.json();
+                    currentOrderLines = order.lines;
+                    renderOrder();
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function renderOrder() {
+            const list = document.getElementById('order-lines');
+            list.innerHTML = '';
+            let total = 0;
+            currentOrderLines.forEach(line => {
+                total += line.subtotal;
+                list.innerHTML += `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="my-0">${line.productName}</h6>
+                            <small class="text-muted">${line.quantity} x $${line.unitPrice.toFixed(2)}</small>
+                        </div>
+                        <div class="text-end">
+                            <span class="text-body-secondary">$${line.subtotal.toFixed(2)}</span>
+                            <button class="btn btn-sm btn-outline-danger ms-2" onclick="removeLine(${line.id})">X</button>
+                        </div>
+                    </li>
+                `;
+            });
+            document.getElementById('order-total').textContent = '$' + total.toFixed(2);
+        }
+
+        function submitOrder() {
+            if (!currentOrderId || currentOrderLines.length === 0) {
+                alert("Debes agregar al menos un producto antes de enviar a cocina.");
+                return;
+            }
+            alert('Orden lista! Puede ser vista por caja.');
+            
+            // Simplemente limpiamos la interfaz para el siguiente cliente
+            currentOrderId = null;
+            currentOrderLines = [];
+            document.getElementById('order-id-display').textContent = 'Presiona un producto para iniciar';
+            renderOrder();
+        }
+
+        async function discardOrder() {
+            if (confirm('¿Seguro que deseas descartar esta orden?')) {
+                if (currentOrderId) {
+                    try {
+                        await fetch(`/api/orders/${currentOrderId}`, { method: 'DELETE' });
+                    } catch (e) { console.error(e); }
+                }
+                currentOrderId = null;
+                currentOrderLines = [];
+                document.getElementById('order-id-display').textContent = 'Presiona un producto para iniciar';
+                renderOrder();
+            }
+        }
+    </script>
+</body>
+
+</html>

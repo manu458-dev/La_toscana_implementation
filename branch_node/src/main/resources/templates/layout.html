@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title}">La Toscana POS</title>
+    <!-- Bootstrap 5 CSS -->
+    <link th:href="@{/css/bootstrap.min.css}" rel="stylesheet">
+    <link th:href="@{/css/bootstrap-icons.min.css}" rel="stylesheet">
+    <link th:href="@{/css/toastify.min.css}" rel="stylesheet">
+    <style>
+        .connectivity-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        .online { background-color: #28a745; box-shadow: 0 0 5px #28a745; }
+        .offline { background-color: #dc3545; box-shadow: 0 0 5px #dc3545; }
+    </style>
+</head>
+<body>
+
+<nav th:fragment="navbar" class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/">
+            La Toscana POS
+            <span th:if="${username}" class="ms-2 fs-6 fw-light text-warning" th:text="'| ' + ${username} + ' (' + ${role} + ')'"></span>
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/">Inicio</a>
+                </li>
+                <li class="nav-item" th:if="${role == 'MANAGER'}">
+                    <a class="nav-link text-warning" href="/manager/inventory">Inventario (Admin)</a>
+                </li>
+                <li class="nav-item" th:if="${role == 'MANAGER'}">
+                    <a class="nav-link text-warning" href="/manager/audit">Arqueo (Admin)</a>
+                </li>
+            </ul>
+            <div class="d-flex text-light align-items-center">
+                <span id="conn-indicator" class="connectivity-indicator online" title="Verificando..."></span>
+                <span id="conn-text" class="me-3">Verificando...</span>
+                <form th:action="@{/logout}" method="post" class="m-0 ms-2">
+                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Cerrar Sesión">
+                        <i class="bi bi-box-arrow-right"></i> Salir
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div th:fragment="scripts">
+    <script th:src="@{/js/bootstrap.bundle.min.js}"></script>
+    <script th:src="@{/js/toastify.js}"></script>
+    <script src="/js/connectivity.js"></script>
+</div>
+</body>
+</html>

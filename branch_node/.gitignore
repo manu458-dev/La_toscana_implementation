@@ -1,0 +1,70 @@
+# ==========================================
+# Archivos de la compilación Maven
+# ==========================================
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+# https://github.com/takari/maven-wrapper#usage-without-binary-jar
+.mvn/wrapper/maven-wrapper.jar
+
+# ==========================================
+# Logs y Temporales
+# ==========================================
+*.log
+*.tmp
+*.temp
+
+# ==========================================
+# IntelliJ IDEA
+# ==========================================
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# ==========================================
+# VS Code
+# ==========================================
+.vscode/
+
+# ==========================================
+# Eclipse Workspace
+# ==========================================
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+
+# ==========================================
+# NetBeans
+# ==========================================
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# ==========================================
+# Mac OS
+# ==========================================
+.DS_Store
+
+# ==========================================
+# Variables de entorno y configuraciones locales
+# (Si llegas a tener un archivo .env o application-local.yml)
+# ==========================================
+.env
+*.local
+application-local.yml
+application-local.properties
